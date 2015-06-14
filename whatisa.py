@@ -1,10 +1,10 @@
 import requests
 from bs4 import BeautifulSoup
 import re
-from collections import OrderedDict
 import random
-
-query = "what is a python module"
+from pygments import highlight
+from pygments.lexers import guess_lexer
+from pygments.formatters import TerminalFormatter
 
 user_agents = ['Mozilla/5.0 (Windows NT 6.3; rv:36.0) Gecko/20100101 Firefox/36.0',
                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10; rv:33.0) Gecko/20100101 Firefox/33.0',
@@ -22,16 +22,39 @@ soup = BeautifulSoup(page_html)
 links = soup.find_all('a')
 
 def pick_first_answer(links):
-    so_links = OrderedDict()
+    so_links = dict()
+    urls = []
     so_regex = re.compile('questions/\d+/')
     for link in links:
         if not link.has_attr('href'):
             pass
         else:
             if so_regex.search(link['href']):
+                if link.text == u'\n\n':
+                    pass
+                else:
+                    urls.append(link.text)
                     so_links[link.text] = link
-    first_link = so_links.keys()[0]
+    first_link = urls[0]
 
     return so_links[first_link]
 
-print pick_first_answer(links)
+first_result = pick_first_answer(links)
+
+def code_format(code):
+    return highlight(code, guess_lexer(code), TerminalFormatter())
+
+def get_so_page(elem):
+    r = requests.get(elem['href'])
+    soup = BeautifulSoup(r.text)
+    answer = soup.find_all('td', class_='answercell')[0]
+    ans = answer.find(class_='post-text')
+    for link in ans.find_all('a'):
+        link.extract()
+    for code in ans.find_all('code'):
+        code_text = code.text
+        code.string = code_format(code_text)
+    the_answer = ans.text.strip()
+    print the_answer
+
+get_so_page(first_result)
